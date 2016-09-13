@@ -1,6 +1,7 @@
 /**
  * Created by sergey on 08.09.16.
  */
+"use strict";
 const express = require("express"),
     app = express(),
     fortune = require("./lib/fortunes"),
@@ -13,13 +14,34 @@ app.set('port', process.env.PORT || 3000);
 
 app.use(express.static(__dirname + "/public"));
 
+app.use(function(req, res, next){
+    res.locals.showTests = app.get('env') !== 'production' &&
+        req.query.test === '1';
+    next();
+});
 app.get('/', function(req, res) {
     res.render('home');
 });
 app.get('/about', function(req,res){
     res.render('about', {
-        fortune: fortune.getFortune()
+        fortune: fortune.getFortune(),
+        pageTestScript: "/qa/tests-about.js"
     });
+});
+app.disable('x-powered-by');
+app.get('/headers', function(req,res){
+    res.set('Content-Type','text/plain');
+    var s = '';
+    for(var name in req.headers)
+        s += name + ': ' + req.headers[name] + '\n';
+    res.send(s);
+});
+
+app.get('/tours/hood-river', function(req, res){
+    res.render('tours/hood-river');
+});
+app.get('/tours/request-group-rate', function(req, res){
+    res.render('tours/request-group-rate');
 });
 
 // 404 catch-all handler (middleware)
