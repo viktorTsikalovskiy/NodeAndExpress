@@ -5,6 +5,7 @@
 const express = require("express"),
     app = express(),
     fortune = require("./lib/fortunes"),
+    credentials = require('./credentials.js'),
     formidable = require('formidable'),
     handlebars = require('express-handlebars')
         .create({
@@ -18,6 +19,7 @@ const express = require("express"),
             }
         });
 app.engine('handlebars', handlebars.engine);
+app.use(require('cookie-parser')(credentials.cookieSecret));
 app.set('view engine', 'handlebars');
 app.use(function (req, res, next) {
     if (!res.locals.partials) res.locals.partials = {};
