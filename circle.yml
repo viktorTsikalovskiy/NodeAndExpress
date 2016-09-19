@@ -7,4 +7,3 @@ dependencies:
     - npm install grunt -g
     - npm install bower -g
     - bower install
-    - npm start
