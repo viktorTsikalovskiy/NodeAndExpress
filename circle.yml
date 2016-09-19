@@ -1,8 +1,9 @@
 machine:
   node:
-    version: 6
+    version: 6.6
 dependencies:
   override:
     - npm install
-    - npm install grunt bower -g
+    - npm install grunt -g
+    - npm install bower -g
     - bower install
