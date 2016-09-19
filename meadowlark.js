@@ -8,7 +8,6 @@ const express = require("express"),
     fortune = require("./lib/fortunes"),
     credentials = require('./credentials.js'),
     emailService = require('./lib/email.js')(credentials),
-    connect = require('connect'),
     morgan = require('morgan'),
     formidable = require('formidable'),
     handlebars = require('express-handlebars')
