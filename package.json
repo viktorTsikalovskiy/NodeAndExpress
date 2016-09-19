@@ -4,7 +4,7 @@
   "description": "",
   "main": "meadowlark.js",
   "scripts": {
-    "start": "NODE_ENV=production nodemon meadowlark"
+    "start": "NODE_ENV=development nodemon meadowlark"
   },
   "author": "",
   "license": "MIT",
