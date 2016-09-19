@@ -6,7 +6,6 @@ const express = require("express"),
     app = express(),
     cartValidation = require('./lib/cartValidation.js'),
     fortune = require("./lib/fortunes"),
-    test = require("test2343"),
     credentials = require('./credentials.js'),
     emailService = require('./lib/email.js')(credentials),
     morgan = require('morgan'),
@@ -108,14 +107,11 @@ Product.find = function (conditions, fields, options, cb) {
         cb = conditions;
         conditions = {};
         fields = null;
-        options = {};
     } else if (typeof fields === 'function') {
         cb = fields;
         fields = null;
-        options = {};
     } else if (typeof options === 'function') {
         cb = options;
-        options = {};
     }
     var products = [
         {
@@ -297,23 +293,23 @@ app.get('/test', function (req, res) {
 });
 
 // 404 catch-all handler (middleware)
-app.use(function (req, res, next) {
+app.use(function (req, res) {
     res.status(404);
     res.render('404');
 });
 
 // 500 error handler (middleware)
-app.use(function (err, req, res, next) {
+app.use(function (err, req, res) {
     console.error(err.stack);
     res.status(500);
     res.render('500');
 });
 
-app.listen(app.get('port'), function () {
-    console.log('Express started on http://localhost:' +
-        app.get('port') + '; press Ctrl-C to terminate.');
+app.listen(app.get('port'), function() {
+    console.log( 'Express запущено в режиме ' + app.get('env') +
+        ' на http://localhost:' + app.get('port') +
+        '; нажмите Ctrl+C для завершения.' );
 });
-
 
 function getWeatherData() {
     return {

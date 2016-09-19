@@ -4,7 +4,7 @@
   "description": "",
   "main": "meadowlark.js",
   "scripts": {
-    "start": "nodemon meadowlark"
+    "start": "NODE_ENV=development nodemon meadowlark"
   },
   "author": "",
   "license": "MIT",
@@ -15,6 +15,7 @@
     "csurf": "^1.9.0",
     "express": "^4.14.0",
     "express-handlebars": "^3.0.0",
+    "express-logger": "0.0.3",
     "express-session": "^1.14.1",
     "formidable": "^1.0.17",
     "morgan": "^1.7.0",
