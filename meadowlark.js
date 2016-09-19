@@ -23,7 +23,6 @@ const express = require("express"),
         });
 app.engine('handlebars', handlebars.engine);
 app.set('view engine', 'handlebars');
-app.use(morgan('dev'));
 app.use(require('cookie-parser')(credentials.cookieSecret));
 app.use(function (req, res, next) {
     if (!res.locals.partials) res.locals.partials = {};
@@ -34,6 +33,7 @@ app.use(require('body-parser').urlencoded({extended: true}));
 app.set('port', process.env.PORT || 3000);
 
 app.use(express.static(__dirname + "/public"));
+app.use(morgan('dev'));
 
 app.use(function (req, res, next) {
     res.locals.showTests = app.get('env') !== 'production' &&
