@@ -33,7 +33,16 @@ app.use(require('body-parser').urlencoded({extended: true}));
 app.set('port', process.env.PORT || 3000);
 
 app.use(express.static(__dirname + "/public"));
-app.use(morgan('dev'));
+
+switch (app.get('env')){
+    case 'development':
+        app.use(morgan('dev'));
+        break;
+    case 'production':
+        app.use(require('express-logger')({
+            path: __dirname + '/log/requests.log'
+        }))
+}
 
 app.use(function (req, res, next) {
     res.locals.showTests = app.get('env') !== 'production' &&
@@ -305,11 +314,23 @@ app.use(function (err, req, res) {
     res.render('500');
 });
 
-app.listen(app.get('port'), function() {
-    console.log( 'Express запущено в режиме ' + app.get('env') +
-        ' на http://localhost:' + app.get('port') +
-        '; нажмите Ctrl+C для завершения.' );
-});
+function startServer() {
+    app.listen(app.get('port'), function() {
+        console.log( 'Express запущен в режиме ' + app.get('env') +
+            ' на http://localhost:' + app.get('port') +
+            '; нажмите Ctrl+C для завершения.' );
+    });
+}
+if(require.main === module){
+// Приложение запускается непосредственно;
+// запускаем сервер приложения
+    startServer();
+} else {
+// Приложение импортируется как модуль
+// посредством "require":
+// экспортируем функцию для создания сервера
+    module.exports = startServer;
+}
 
 function getWeatherData() {
     return {
