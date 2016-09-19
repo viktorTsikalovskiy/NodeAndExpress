@@ -3,4 +3,8 @@
  */
 module.exports = {
     cookieSecret: 'TeStSeCrEtCoOkIe',
+    gmail: {
+        user: 'sakalina222',
+        password: 'SOkoL290486',
+    }
 };
