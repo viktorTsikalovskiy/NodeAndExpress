@@ -21,6 +21,47 @@ const express = require("express"),
                 }
             }
         });
+app.enable('trust proxy');
+app.use(function (req, res, next) {
+// создаем домен для этого запроса
+    var domain = require('domain').create();
+// обрабатываем ошибки на этом домене
+    domain.on('error', function (err) {
+        console.error('ПЕРЕХВАЧЕНА ОШИБКА ДОМЕНА\n', err.stack);
+        try {
+// Отказобезопасный останов через 5 секунд
+            setTimeout(function () {
+                console.error(' Отказобезопасный останов.');
+                process.exit(1);
+            }, 5000);
+// Отключение от кластера
+            var worker = require('cluster').worker;
+            if (worker) worker.disconnect();
+// Прекращение принятия новых запросов
+            server.close();
+            try {
+// Попытка использовать маршрутизацию
+// ошибок Express
+                next(err);
+            } catch (err) {
+// Если маршрутизация ошибок Express не сработала,
+                // пробуем выдать текстовый ответ Node
+                console.error('Сбой механизма обработки ошибок ' +
+                    'Express .\n', err.stack);
+                res.statusCode = 500;
+                res.setHeader('content-type', 'text/plain');
+                res.end('Ошибка сервера.');
+            }
+        } catch (err) {
+            console.error('Не могу отправить ответ 500.\n', err.stack);
+        }
+    });
+// Добавляем объекты запроса и ответа в домен
+    domain.add(req);
+    domain.add(res);
+    // Выполняем оставшуюся часть цепочки запроса в домене
+    domain.run(next);
+});
 app.engine('handlebars', handlebars.engine);
 app.set('view engine', 'handlebars');
 app.use(require('cookie-parser')(credentials.cookieSecret));
@@ -34,7 +75,7 @@ app.set('port', process.env.PORT || 3000);
 
 app.use(express.static(__dirname + "/public"));
 
-switch (app.get('env')){
+switch (app.get('env')) {
     case 'development':
         app.use(morgan('dev'));
         break;
@@ -66,8 +107,20 @@ app.use(function (req, res, next) {
 });
 app.use(cartValidation.checkWaivers);
 app.use(cartValidation.checkGuestCounts);
+/*app.use(function(req,res,next){
+ var cluster = require('cluster');
+ if(cluster.isWorker) console.log('Исполнитель %d получил запрос',
+ cluster.worker.id);
+ });*/
 ////////////////////////////////////////////////
-
+app.get('/fail', function (req, res) {
+    throw new Error('Нет!');
+});
+app.get('/epic-fail', function (req, res) {
+    process.nextTick(function () {
+        throw new Error('Бабах!');
+    });
+});
 app.get('/', function (req, res) {
     res.render('home');
 });
@@ -104,6 +157,7 @@ app.get('/newsletter', function (req, res) {
 // for now, we're mocking NewsletterSignup:
 function NewsletterSignup() {
 }
+
 NewsletterSignup.prototype.save = function (cb) {
     cb();
 };
@@ -111,6 +165,7 @@ NewsletterSignup.prototype.save = function (cb) {
 // mocking product database
 function Product() {
 }
+
 Product.find = function (conditions, fields, options, cb) {
     if (typeof conditions === 'function') {
         cb = conditions;
@@ -258,19 +313,19 @@ app.post('/cart/add', function (req, res, next) {
 });
 app.get('/cart', function (req, res) {
     var cart = req.session.cart;
-    if(!cart) next();
-    res.render('cart', { cart: cart });
+    if (!cart) next();
+    res.render('cart', {cart: cart});
 });
-app.get('/cart/checkout', function(req, res, next){
+app.get('/cart/checkout', function (req, res, next) {
     var cart = req.session.cart;
-    if(!cart) next();
+    if (!cart) next();
     res.render('cart-checkout');
 });
-app.get('/cart/thank-you', function(req, res){
-    res.render('cart-thank-you', { cart: req.session.cart });
+app.get('/cart/thank-you', function (req, res) {
+    res.render('cart-thank-you', {cart: req.session.cart});
 });
-app.get('/email/cart/thank-you', function(req, res){
-    res.render('email/cart-thank-you', { cart: req.session.cart, layout: null });
+app.get('/email/cart/thank-you', function (req, res) {
+    res.render('email/cart-thank-you', {cart: req.session.cart, layout: null});
 });
 app.post('/cart/checkout', function (req, res) {
     var cart = req.session.cart;
@@ -308,20 +363,20 @@ app.use(function (req, res) {
 });
 
 // 500 error handler (middleware)
-app.use(function (err, req, res) {
+app.use(function (err, req, res, next) {
     console.error(err.stack);
-    res.status(500);
-    res.render('500');
+    res.status(500).render('500');
 });
 
 function startServer() {
-    app.listen(app.get('port'), function() {
-        console.log( 'Express запущен в режиме ' + app.get('env') +
+    app.listen(app.get('port'), function () {
+        console.log('Express запущен в режиме ' + app.get('env') +
             ' на http://localhost:' + app.get('port') +
-            '; нажмите Ctrl+C для завершения.' );
+            '; нажмите Ctrl+C для завершения.');
     });
 }
-if(require.main === module){
+
+if (require.main === module) {
 // Приложение запускается непосредственно;
 // запускаем сервер приложения
     startServer();
