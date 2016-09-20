@@ -22,6 +22,9 @@ const express = require("express"),
             }
         });
 app.enable('trust proxy');
+app.engine('handlebars', handlebars.engine);
+app.set('view engine', 'handlebars');
+app.set('port', process.env.PORT || 3000);
 app.use(function (req, res, next) {
 // создаем домен для этого запроса
     var domain = require('domain').create();
@@ -62,19 +65,7 @@ app.use(function (req, res, next) {
     // Выполняем оставшуюся часть цепочки запроса в домене
     domain.run(next);
 });
-app.engine('handlebars', handlebars.engine);
-app.set('view engine', 'handlebars');
-app.use(require('cookie-parser')(credentials.cookieSecret));
-app.use(function (req, res, next) {
-    if (!res.locals.partials) res.locals.partials = {};
-    res.locals.partials.weatherContext = getWeatherData();
-    next();
-});
-app.use(require('body-parser').urlencoded({extended: true}));
-app.set('port', process.env.PORT || 3000);
-
-app.use(express.static(__dirname + "/public"));
-
+//logging
 switch (app.get('env')) {
     case 'development':
         app.use(morgan('dev'));
@@ -82,21 +73,18 @@ switch (app.get('env')) {
     case 'production':
         app.use(require('express-logger')({
             path: __dirname + '/log/requests.log'
-        }))
+        }));
 }
-
-app.use(function (req, res, next) {
-    res.locals.showTests = app.get('env') !== 'production' &&
-        req.query.test === '1';
-    next();
-});
-
 app.use(require('cookie-parser')(credentials.cookieSecret));
+
+
 app.use(require('express-session')({
     resave: false,
     saveUninitialized: false,
     secret: credentials.cookieSecret,
 }));
+app.use(require('body-parser').urlencoded({extended: true}));
+app.use(express.static(__dirname + "/public"));
 app.use(require('csurf')());
 app.use(function (req, res, next) {
 // Если имеется экстренное сообщение,
@@ -105,22 +93,51 @@ app.use(function (req, res, next) {
     delete req.session.flash;
     next();
 });
-app.use(cartValidation.checkWaivers);
-app.use(cartValidation.checkGuestCounts);
+
+app.use(function (req, res, next) {
+    res.locals.showTests = app.get('env') !== 'production' &&
+        req.query.test === '1';
+    next();
+});
+function getWeatherData() {
+    return {
+        locations: [
+            {
+                name: 'Портленд',
+                forecastUrl: 'http://www.wunderground.com/US/OR/Portland.html',
+                iconUrl: 'http://icons-ak.wxug.com/i/c/k/cloudy.gif',
+                weather: 'Сплошная облачность ',
+                temp: '54.1 F (12.3 C)',
+            },
+            {
+                name: 'Бенд',
+                forecastUrl: 'http://www.wunderground.com/US/OR/Bend.html',
+                iconUrl: 'http://icons-ak.wxug.com/i/c/k/partlycloudy.gif',
+                weather: 'Малооблачно',
+                temp: '55.0 F (12.8 C)',
+            },
+            {
+                name: 'Манзанита',
+                forecastUrl: 'http://www.wunderground.com/US/OR/Manzanita.html',
+                iconUrl: 'http://icons-ak.wxug.com/i/c/k/rain.gif',
+                weather: 'Небольшой дождь',
+                temp: '55.0 F (12.8 C)',
+            },
+        ],
+    };
+}
+app.use(function (req, res, next) {
+    if (!res.locals.partials) res.locals.partials = {};
+    res.locals.partials.weatherContext = getWeatherData();
+    next();
+});
+
 /*app.use(function(req,res,next){
  var cluster = require('cluster');
  if(cluster.isWorker) console.log('Исполнитель %d получил запрос',
  cluster.worker.id);
  });*/
 ////////////////////////////////////////////////
-app.get('/fail', function (req, res) {
-    throw new Error('Нет!');
-});
-app.get('/epic-fail', function (req, res) {
-    process.nextTick(function () {
-        throw new Error('Бабах!');
-    });
-});
 app.get('/', function (req, res) {
     res.render('home');
 });
@@ -298,7 +315,6 @@ app.get('/adventures/:subcat/:name', function (req, res, next) {
 
 app.use(cartValidation.checkWaivers);
 app.use(cartValidation.checkGuestCounts);
-
 app.post('/cart/add', function (req, res, next) {
     var cart = req.session.cart || (req.session.cart = []);
     Product.findOne({sku: req.body.sku}, function (err, product) {
@@ -311,7 +327,7 @@ app.post('/cart/add', function (req, res, next) {
         res.redirect(303, '/cart');
     });
 });
-app.get('/cart', function (req, res) {
+app.get('/cart', function (req, res, next) {
     var cart = req.session.cart;
     if (!cart) next();
     res.render('cart', {cart: cart});
@@ -327,7 +343,7 @@ app.get('/cart/thank-you', function (req, res) {
 app.get('/email/cart/thank-you', function (req, res) {
     res.render('email/cart-thank-you', {cart: req.session.cart, layout: null});
 });
-app.post('/cart/checkout', function (req, res) {
+app.post('/cart/checkout', function (req, res, next) {
     var cart = req.session.cart;
     if (!cart) next(new Error('Корзина не существует.'));
     var name = req.body.name || '', email = req.body.email || '';
@@ -352,6 +368,11 @@ app.post('/cart/checkout', function (req, res) {
     );
     res.render('cart-thank-you', {cart: cart});
 });
+app.get('/epic-fail', function (req, res) {
+    process.nextTick(function () {
+        throw new Error('Бабах!');
+    });
+});
 app.get('/test', function (req, res) {
 
 });
@@ -368,11 +389,13 @@ app.use(function (err, req, res, next) {
     res.status(500).render('500');
 });
 
+var server;
+
 function startServer() {
-    app.listen(app.get('port'), function () {
-        console.log('Express запущен в режиме ' + app.get('env') +
-            ' на http://localhost:' + app.get('port') +
-            '; нажмите Ctrl+C для завершения.');
+    server = http.createServer(app).listen(app.get('port'), function(){
+        console.log( 'Express started in ' + app.get('env') +
+            ' mode on http://localhost:' + app.get('port') +
+            '; press Ctrl-C to terminate.' );
     });
 }
 
@@ -387,30 +410,3 @@ if (require.main === module) {
     module.exports = startServer;
 }
 
-function getWeatherData() {
-    return {
-        locations: [
-            {
-                name: 'Портленд',
-                forecastUrl: 'http://www.wunderground.com/US/OR/Portland.html',
-                iconUrl: 'http://icons-ak.wxug.com/i/c/k/cloudy.gif',
-                weather: 'Сплошная облачность ',
-                temp: '54.1 F (12.3 C)',
-            },
-            {
-                name: 'Бенд',
-                forecastUrl: 'http://www.wunderground.com/US/OR/Bend.html',
-                iconUrl: 'http://icons-ak.wxug.com/i/c/k/partlycloudy.gif',
-                weather: 'Малооблачно',
-                temp: '55.0 F (12.8 C)',
-            },
-            {
-                name: 'Манзанита',
-                forecastUrl: 'http://www.wunderground.com/US/OR/Manzanita.html',
-                iconUrl: 'http://icons-ak.wxug.com/i/c/k/rain.gif',
-                weather: 'Небольшой дождь',
-                temp: '55.0 F (12.8 C)',
-            },
-        ],
-    };
-}
