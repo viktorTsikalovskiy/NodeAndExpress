@@ -4,6 +4,7 @@ var main = require('./handlers/main.js'),
     cart = require('./handlers/cart.js'),
     cartValidation = require('./lib/cartValidation.js'),
     contact = require('./handlers/contact.js'),
+    attraction = require('./handlers/attraction.js'),
     samples = require('./handlers/sample.js');
 
 module.exports = function (app) {
@@ -48,4 +49,9 @@ module.exports = function (app) {
     app.get('/nursery-rhyme', samples.nurseryRhyme);
     app.get('/data/nursery-rhyme', samples.nurseryRhymeData);
     app.get('/epic-fail', samples.epicFail);
+
+    //attraction (api)
+    app.get('/attractions', attraction.getAttraction);
+    app.post('/attractions', attraction.createAttraction);
+    app.get('/attractions/:id', attraction.getByIdAttraction);
 };

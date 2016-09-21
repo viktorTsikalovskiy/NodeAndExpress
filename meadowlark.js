@@ -10,6 +10,7 @@ const express = require("express"),
     fs = require('fs'),
     morgan = require('morgan'),
     formidable = require('formidable'),
+    Rest = require('connect-rest'),
     favicon = require('serve-favicon'),
     Vacation = require('./models/vacation'),
     handlebars = require('express-handlebars')
@@ -73,7 +74,7 @@ app.use(function(req, res, next){
     domain.run(next);
 });
 
-
+app.use('/api', require('cors')());
 
 var MongoSessionStore = require('session-mongoose')(require('connect'));
 var sessionStore = new MongoSessionStore({ url: credentials.mongo[app.get('env')].connectionString });
@@ -252,7 +253,22 @@ app.use(function(req,res,next){
     // no view found; pass on to 404 handler
     next();
 });
-
+var apiOptions = {
+    context: '/api',
+    domain: require('domain').create(),
+};
+apiOptions.domain.on('error', function(err){
+    console.log('API domain error.\n', err.stack);
+    setTimeout(function(){
+        console.log('Останов сервера после ошибки домена API.');
+        process.exit(1);
+    }, 5000);
+    server.close();
+    var worker = require('cluster').worker;
+    if(worker) worker.disconnect();
+});
+var rest = Rest.create( apiOptions );
+app.use(rest.processRequest());
 // 404 catch-all handler (middleware)
 app.use(function(req, res){
     res.status(404);
