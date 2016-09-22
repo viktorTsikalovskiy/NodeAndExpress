@@ -11,7 +11,7 @@ const express = require("express"),
     morgan = require('morgan'),
     vhost = require('vhost'),
     formidable = require('formidable'),
-    Rest = require('connect-rest'),
+    rest = require('connect-rest'),
     favicon = require('serve-favicon'),
     Vacation = require('./models/vacation'),
     handlebars = require('express-handlebars')
@@ -247,11 +247,7 @@ require('./routes.js')(app);
 // api
 
 var Attraction = require('./models/attraction.js');
-var apiOptions = {
-    context: '/',
-    domain: require('domain').create(),
-};
-var rest = Rest.create( apiOptions );
+
 rest.get('/attractions', function(req, content, cb){
     Attraction.find({ approved: true }, function(err, attractions){
         if(err) return cb({ error: 'Internal error.' });
@@ -294,7 +290,10 @@ rest.get('/attraction/:id', function(req, content, cb){
     });
 });
 
-
+var apiOptions = {
+    context: '/',
+    domain: require('domain').create(),
+};
 apiOptions.domain.on('error', function(err){
     console.log('API domain error.\n', err.stack);
     setTimeout(function(){
@@ -305,7 +304,7 @@ apiOptions.domain.on('error', function(err){
     var worker = require('cluster').worker;
     if(worker) worker.disconnect();
 });
-app.use(vhost('api.*', rest.processRequest()));
+app.use(vhost('react.*', rest.rester(apiOptions)));
 // add support for auto views
 var autoViews = {};
 
