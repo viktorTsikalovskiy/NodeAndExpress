@@ -9,6 +9,7 @@ const express = require("express"),
     credentials = require('./credentials.js'),
     fs = require('fs'),
     morgan = require('morgan'),
+    vhost = require('vhost'),
     formidable = require('formidable'),
     Rest = require('connect-rest'),
     favicon = require('serve-favicon'),
@@ -74,7 +75,6 @@ app.use(function(req, res, next){
     domain.run(next);
 });
 
-app.use('/api', require('cors')());
 
 var MongoSessionStore = require('session-mongoose')(require('connect'));
 var sessionStore = new MongoSessionStore({ url: credentials.mongo[app.get('env')].connectionString });
@@ -219,6 +219,13 @@ app.use(function(req, res, next){
     next();
 });
 
+// middleware to add weather data to context
+app.use(function(req, res, next){
+    if(!res.locals.partials) res.locals.partials = {};
+    res.locals.partials.weatherContext = getWeatherData();
+    next();
+});
+
 
 // create "admin" subdomain...this should appear
 // before all your other routes
@@ -237,6 +244,68 @@ admin.get('/users', function(req, res){
 // add routes
 require('./routes.js')(app);
 
+// api
+
+var Attraction = require('./models/attraction.js');
+var apiOptions = {
+    context: '/',
+    domain: require('domain').create(),
+};
+var rest = Rest.create( apiOptions );
+rest.get('/attractions', function(req, content, cb){
+    Attraction.find({ approved: true }, function(err, attractions){
+        if(err) return cb({ error: 'Internal error.' });
+        cb(null, attractions.map(function(a){
+            return {
+                name: a.name,
+                description: a.description,
+                location: a.location,
+            };
+        }));
+    });
+});
+
+rest.post('/attraction', function(req, content, cb){
+    var a = new Attraction({
+        name: req.body.name,
+        description: req.body.description,
+        location: { lat: req.body.lat, lng: req.body.lng },
+        history: {
+            event: 'created',
+            email: req.body.email,
+            date: new Date(),
+        },
+        approved: false,
+    });
+    a.save(function(err, a){
+        if(err) return cb({ error: 'Unable to add attraction.' });
+        cb(null, { id: a._id });
+    });
+});
+
+rest.get('/attraction/:id', function(req, content, cb){
+    Attraction.findById(req.params.id, function(err, a){
+        if(err) return cb({ error: 'Unable to retrieve attraction.' });
+        cb(null, {
+            name: a.name,
+            description: a.description,
+            location: a.location,
+        });
+    });
+});
+
+
+apiOptions.domain.on('error', function(err){
+    console.log('API domain error.\n', err.stack);
+    setTimeout(function(){
+        console.log('Server shutting down after API domain error.');
+        process.exit(1);
+    }, 5000);
+    server.close();
+    var worker = require('cluster').worker;
+    if(worker) worker.disconnect();
+});
+app.use(vhost('api.*', rest.processRequest()));
 // add support for auto views
 var autoViews = {};
 
@@ -253,22 +322,10 @@ app.use(function(req,res,next){
     // no view found; pass on to 404 handler
     next();
 });
-var apiOptions = {
-    context: '/api',
-    domain: require('domain').create(),
-};
-apiOptions.domain.on('error', function(err){
-    console.log('API domain error.\n', err.stack);
-    setTimeout(function(){
-        console.log('Останов сервера после ошибки домена API.');
-        process.exit(1);
-    }, 5000);
-    server.close();
-    var worker = require('cluster').worker;
-    if(worker) worker.disconnect();
-});
-var rest = Rest.create( apiOptions );
-app.use(rest.processRequest());
+
+
+/*var rest = Rest.create( apiOptions );
+app.use(rest.processRequest());*/
 // 404 catch-all handler (middleware)
 app.use(function(req, res){
     res.status(404);
